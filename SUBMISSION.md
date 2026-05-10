@@ -329,7 +329,7 @@ breast_cancer_training | manual__2026-05-10T23:00:12+00:00 | success | ...
 2026-05-10 23:00:20        902 model_metadata.json
 
 ✅ Requirement 2: Inference Queue DAG
-breast_cancer_inference_queue | manual__2026-05-10T23:06:15+00:00 | success | ...
+breast_cancer_inference_queue | manual__2026-05-10T23:20:32+00:00 | success | ...
 
 ✅ Requirement 2: SQS Queue Status
 Messages remaining: 0
@@ -341,10 +341,10 @@ Total predictions: 114 (expected: 114)
 {"record_id":"sample_0001","prediction":1,"has_timestamp":true,"has_confidence":true}
 
 ✅ Requirement 5: Kubernetes Deployment
-deployment.yaml exists (47 lines)
-  replicas: 2
-      app: ml-consumer
-        image: <your-ecr-repo>/ml-consumer:latest
+deployment.yaml exists (55 lines)
+  replicas: 1
+      app: ml-inference-consumer
+        image: 576524850000.dkr.ecr.us-east-1.amazonaws.com/mlops-tonychalleen-final:latest
 
 ==========================================
 Verification Complete!
