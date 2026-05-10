@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ml-inference-consumer
+  labels:
+    app: ml-inference-consumer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ml-inference-consumer
+  template:
+    metadata:
+      labels:
+        app: ml-inference-consumer
+    spec:
+      containers:
+      - name: consumer
+        image: 576524850000.dkr.ecr.us-east-1.amazonaws.com/mlops-tonychalleen-final:latest
+        imagePullPolicy: Always
+        env:
+        - name: S3_BUCKET
+          value: "tony-mlops-2026"
+        - name: MODEL_KEY
+          value: "models/breast_cancer_model.pkl"
+        - name: PREDICTIONS_PREFIX
+          value: "predictions"
+        - name: SQS_QUEUE_URL
+          value: "https://sqs.us-east-1.amazonaws.com/576524850000/mlops-tonychalleen-final"
+        - name: AWS_REGION
+          value: "us-east-1"
+        - name: MAX_MESSAGES
+          value: "10"
+        - name: VISIBILITY_TIMEOUT
+          value: "30"
+        - name: WAIT_TIME
+          value: "20"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+      serviceAccountName: ml-inference-sa
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ml-inference-sa
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::576524850000:role/EKSMLOpsRole
