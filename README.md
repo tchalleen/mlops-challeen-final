@@ -249,6 +249,25 @@ export AIRFLOW_HOME=$(pwd)/airflow
 ./scripts/start_airflow_cloud9.sh
 ```
 
+### Login Credentials Not Working (admin/admin)
+
+**Problem:** Can't login with admin/admin  
+**Solution:** Reset the admin password:
+```bash
+source venv/bin/activate
+export AIRFLOW_HOME=$(pwd)/airflow
+./scripts/reset_admin_password.sh
+```
+
+**Alternative:** Use `airflow standalone` which creates a random password:
+```bash
+source venv/bin/activate
+export AIRFLOW_HOME=$(pwd)/airflow
+./scripts/stop_airflow.sh
+airflow standalone
+# Password will be shown in the output and saved to standalone_admin_password.txt
+```
+
 ### Installation Errors (google-re2)
 
 **Problem:** Compilation error during `pip install`  
