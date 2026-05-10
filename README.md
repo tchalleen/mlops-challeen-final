@@ -15,6 +15,7 @@ cd mlops-challeen-final
 
 # 3. Setup Airflow
 source venv/bin/activate
+export AIRFLOW_HOME=$(pwd)/airflow
 ./scripts/setup_airflow.sh
 
 # 4. Migrate database
@@ -22,10 +23,12 @@ airflow db migrate
 
 # 5. Start Airflow
 ./scripts/start_airflow_cloud9.sh
+
+# 6. Set AIRFLOW_HOME for all future commands
+export AIRFLOW_HOME=$(pwd)/airflow
 ```
 
-**Access Airflow:** Cloud9 → Preview → Preview Running Application  
-**Login:** admin / admin
+**Note:** No UI needed - all commands run via CLI below
 
 ## Run Pipeline
 
@@ -33,13 +36,19 @@ airflow db migrate
 
 ```bash
 source venv/bin/activate
+export AIRFLOW_HOME=$(pwd)/airflow
+
 airflow dags unpause breast_cancer_training
 airflow dags trigger breast_cancer_training
+
+# Check status
+airflow dags list-runs -d breast_cancer_training --no-backfill | head -5
 ```
 
 **Verify:**
 ```bash
 aws s3 ls s3://tony-mlops-2026/models/
+# Should show: breast_cancer_model.pkl and model_metadata.json
 ```
 
 ### Send Test Data to Queue
@@ -47,6 +56,9 @@ aws s3 ls s3://tony-mlops-2026/models/
 ```bash
 airflow dags unpause breast_cancer_inference_queue
 airflow dags trigger breast_cancer_inference_queue
+
+# Check status
+airflow dags list-runs -d breast_cancer_inference_queue --no-backfill | head -5
 ```
 
 **Verify:**
@@ -54,20 +66,25 @@ airflow dags trigger breast_cancer_inference_queue
 aws sqs get-queue-attributes \
   --queue-url https://sqs.us-east-1.amazonaws.com/576524850000/mlops-tonychalleen-final \
   --attribute-names ApproximateNumberOfMessages
+# Should show ~114 messages
 ```
 
 ### Run Consumer
 
 ```bash
-cd ~/environment/mlops-challeen-final/consumer
+cd consumer
 source ../venv/bin/activate
-pip install -r requirements.txt
 python consumer.py
+# Press Ctrl+C when done
 ```
 
 **Verify Results:**
 ```bash
-aws s3 ls s3://tony-mlops-2026/predictions/
+aws s3 ls s3://tony-mlops-2026/predictions/ | wc -l
+# Should show: 114
+
+# View sample prediction
+aws s3 cp s3://tony-mlops-2026/predictions/sample_0001.json - | jq .
 ```
 
 ## Architecture
