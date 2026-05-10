@@ -304,9 +304,58 @@ Airflow → Test Data → SQS → Consumer → Inference → S3 ✅
 
 ---
 
-## Quick Verification Checklist
+## Complete Verification Script
 
-Run these commands to verify all requirements:
+**Run this single script to verify all requirements:**
+
+```bash
+cd ~/environment/mlops-challeen-final
+source venv/bin/activate
+export AIRFLOW_HOME=$(pwd)/airflow
+./scripts/verify_all.sh
+```
+
+**Expected Output (concise, ~20 lines):**
+```
+==========================================
+MLOps Final Project - Verification
+==========================================
+
+✅ Requirement 1: Training DAG
+breast_cancer_training | manual__2026-05-10T23:00:12+00:00 | success | ...
+
+✅ Requirement 1: Model Saved to S3
+2026-05-10 23:00:20       1109 breast_cancer_model.pkl
+2026-05-10 23:00:20        902 model_metadata.json
+
+✅ Requirement 2: Inference Queue DAG
+breast_cancer_inference_queue | manual__2026-05-10T23:06:15+00:00 | success | ...
+
+✅ Requirement 2: SQS Queue Status
+Messages remaining: 0
+
+✅ Requirement 3 & 4: Consumer Output
+Total predictions: 114 (expected: 114)
+
+✅ Requirement 4: Sample Prediction Format
+{"record_id":"sample_0001","prediction":1,"has_timestamp":true,"has_confidence":true}
+
+✅ Requirement 5: Kubernetes Deployment
+deployment.yaml exists (47 lines)
+  replicas: 2
+      app: ml-consumer
+        image: <your-ecr-repo>/ml-consumer:latest
+
+==========================================
+Verification Complete!
+==========================================
+```
+
+---
+
+## Manual Verification (Alternative)
+
+If you prefer to run commands individually:
 
 ```bash
 # 1. Model in S3
