@@ -30,10 +30,15 @@ sleep 30
 source venv/bin/activate
 export AIRFLOW_HOME=$(pwd)/airflow
 
+# Wait for scheduler to scan DAGs
+sleep 60
+
 airflow dags unpause breast_cancer_training
 airflow dags trigger breast_cancer_training
 sleep 60
-airflow dags list-runs -d breast_cancer_training --no-backfill | head -5
+
+# Check status
+airflow dags list-runs -d breast_cancer_training | grep success
 ```
 
 ### Proof: Model Saved to S3
@@ -73,7 +78,9 @@ cat airflow/dags/training_dag.py
 airflow dags unpause breast_cancer_inference_queue
 airflow dags trigger breast_cancer_inference_queue
 sleep 60
-airflow dags list-runs -d breast_cancer_inference_queue --no-backfill | head -5
+
+# Check status
+airflow dags list-runs -d breast_cancer_inference_queue | grep success
 ```
 
 ### Proof: Messages in SQS
