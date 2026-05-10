@@ -110,7 +110,8 @@ def process_message(message_body):
         success = save_prediction_to_s3(record_id, prediction, confidence, true_label)
         
         if success:
-            print(f"✅ Processed {record_id}: prediction={prediction}, confidence={confidence:.4f if confidence else 'N/A'}")
+            conf_str = f"{confidence:.4f}" if confidence else "N/A"
+            print(f"✅ Processed {record_id}: prediction={prediction}, confidence={conf_str}")
             return True
         else:
             print(f"⚠️  Failed to save prediction for {record_id}")
