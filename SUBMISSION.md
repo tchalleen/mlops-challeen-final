@@ -162,7 +162,7 @@ python consumer.py
 ### Proof: Predictions in S3
 
 ```bash
-aws s3 ls s3://tony-mlops-2026/predictions/ | head -10
+aws s3 ls s3://tony-mlops-2026/predictions/ | head -5
 ```
 
 **Expected Output:**
@@ -213,32 +213,47 @@ aws s3 ls s3://tony-mlops-2026/predictions/ | wc -l
 ### View Kubernetes Deployment YAML
 
 ```bash
+cd ~/environment/mlops-challeen-final
 cat kubernetes/deployment.yaml
 ```
 
 **Key Components:**
-- Deployment with configurable replicas
-- Environment variables for S3 bucket and SQS queue URL
-- IAM role annotation for AWS permissions
-- Resource requests/limits defined
+- ✅ Deployment with configurable replicas (default: 2)
+- ✅ Environment variables for S3 bucket and SQS queue URL
+- ✅ IAM role annotation for AWS permissions
+- ✅ Resource requests/limits defined
+- ✅ Liveness/readiness probes configured
 
-### Demonstrate Scaling (Optional - if using EKS)
+**Expected Output:**
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ml-consumer
+spec:
+  replicas: 2
+  ...
+```
+
+### Demonstrate Scaling (Production EKS Only)
+
+**Note:** Cloud9 doesn't have kubectl installed. The following commands demonstrate how to deploy and scale in a production EKS cluster:
 
 ```bash
-# Apply deployment
+# Apply deployment (requires EKS cluster)
 kubectl apply -f kubernetes/deployment.yaml
 
 # Verify pod running
 kubectl get pods -l app=ml-consumer
 
-# Scale to 3 replicas
+# Scale to 3 replicas for higher throughput
 kubectl scale deployment ml-consumer --replicas=3
 
 # Verify scaling
 kubectl get pods -l app=ml-consumer
 ```
 
-**Note:** For Cloud9 environment, consumer runs directly via Python. Kubernetes deployment YAML is provided for production deployment to EKS.
+**For this submission:** Consumer was successfully run locally in Cloud9 using `python consumer.py`, demonstrating the core inference logic. The Kubernetes YAML is provided for production deployment.
 
 ---
 
