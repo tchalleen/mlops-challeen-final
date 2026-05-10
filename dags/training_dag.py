@@ -39,7 +39,7 @@ def load_and_split_data(**context):
     context['ti'].xcom_push(key='target_names', value=data.target_names.tolist())
 
 def train_model(**context):
-    """Train logistic regression model"""
+    """Train logistic regression model and save to S3"""
     print("Training logistic regression model...")
     
     # Pull data from XCom
@@ -48,6 +48,8 @@ def train_model(**context):
     y_train = ti.xcom_pull(key='y_train', task_ids='load_and_split_data')
     X_test = ti.xcom_pull(key='X_test', task_ids='load_and_split_data')
     y_test = ti.xcom_pull(key='y_test', task_ids='load_and_split_data')
+    feature_names = ti.xcom_pull(key='feature_names', task_ids='load_and_split_data')
+    target_names = ti.xcom_pull(key='target_names', task_ids='load_and_split_data')
     
     # Train model
     model = LogisticRegression(max_iter=10000, random_state=42)
@@ -63,26 +65,12 @@ def train_model(**context):
     print("\nClassification Report:")
     print(classification_report(y_test, y_pred))
     
-    # Push model and metadata to XCom
-    ti.xcom_push(key='model', value=model)
-    ti.xcom_push(key='accuracy', value=accuracy)
-
-def save_model_to_s3(**context):
-    """Serialize model and save to S3"""
+    # Save model directly to S3 (don't pass through XCom)
     print("Saving model to S3...")
-    
-    ti = context['ti']
-    model = ti.xcom_pull(key='model', task_ids='train_model')
-    accuracy = ti.xcom_pull(key='accuracy', task_ids='train_model')
-    feature_names = ti.xcom_pull(key='feature_names', task_ids='load_and_split_data')
-    target_names = ti.xcom_pull(key='target_names', task_ids='load_and_split_data')
-    
-    # Serialize model to bytes
     model_bytes = io.BytesIO()
     joblib.dump(model, model_bytes)
     model_bytes.seek(0)
     
-    # Upload model to S3
     s3 = boto3.client('s3', region_name='us-east-1')
     s3.upload_fileobj(model_bytes, S3_BUCKET, MODEL_KEY)
     print(f"✅ Model uploaded to s3://{S3_BUCKET}/{MODEL_KEY}")
@@ -105,6 +93,10 @@ def save_model_to_s3(**context):
     )
     print(f"✅ Metadata uploaded to s3://{S3_BUCKET}/{METADATA_KEY}")
     print(f"Model accuracy: {accuracy:.4f}")
+
+def save_model_to_s3(**context):
+    """DEPRECATED - Model is now saved in train_model task"""
+    print("✅ Model already saved to S3 in train_model task - nothing to do here")
 
 # Define DAG
 default_args = {
