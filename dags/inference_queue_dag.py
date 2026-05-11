@@ -7,30 +7,27 @@ import json
 from sklearn.datasets import load_breast_cancer
 from sklearn.model_selection import train_test_split
 
-# Configuration
 SQS_QUEUE_URL = "https://sqs.us-east-1.amazonaws.com/576524850000/mlops-tonychalleen-final"
 AWS_REGION = "us-east-1"
 
 def load_test_data(**context):
-    """Load breast cancer dataset and extract test set"""
-    print("Loading breast cancer dataset for inference...")
+    """Load test dataset"""
+    print("Loading test dataset...")
     data = load_breast_cancer()
     X, y = data.data, data.target
     
-    # Use same split as training (same random_state)
     _, X_test, _, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42, stratify=y
     )
     
-    print(f"Test dataset loaded: {X_test.shape[0]} samples")
+    print(f"Test dataset: {X_test.shape[0]} samples")
     
-    # Push to XCom
     context['ti'].xcom_push(key='X_test', value=X_test.tolist())
     context['ti'].xcom_push(key='y_test', value=y_test.tolist())
     context['ti'].xcom_push(key='n_samples', value=X_test.shape[0])
 
 def send_to_sqs(**context):
-    """Send test records to SQS queue"""
+    """Send test records to SQS"""
     print("Sending test records to SQS...")
     
     ti = context['ti']
@@ -48,7 +45,7 @@ def send_to_sqs(**context):
         message = {
             "record_id": record_id,
             "features": features,
-            "true_label": int(true_label)  # Include for validation purposes
+            "true_label": int(true_label)
         }
         
         try:
@@ -65,13 +62,10 @@ def send_to_sqs(**context):
             print(f"Failed to send message {record_id}: {e}")
             failed_count += 1
     
-    print(f"\n✅ Successfully sent {sent_count} messages to SQS")
+    print(f"\n✅ Sent {sent_count} messages to SQS")
     if failed_count > 0:
-        print(f"⚠️  Failed to send {failed_count} messages")
-    
-    print(f"Queue URL: {SQS_QUEUE_URL}")
+        print(f"⚠️  Failed: {failed_count}")
 
-# Define DAG
 default_args = {
     'owner': 'airflow',
     'depends_on_past': False,
@@ -84,8 +78,8 @@ default_args = {
 with DAG(
     dag_id='breast_cancer_inference_queue',
     default_args=default_args,
-    description='Send test dataset to SQS for inference',
-    schedule_interval=None,  # Manual trigger
+    description='Send test dataset to SQS',
+    schedule_interval=None,
     start_date=days_ago(1),
     catchup=False,
     tags=['ml', 'inference', 'sqs'],

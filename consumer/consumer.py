@@ -7,7 +7,6 @@ from datetime import datetime
 import os
 import sys
 
-# Configuration
 S3_BUCKET = os.getenv("S3_BUCKET", "tony-mlops-2026")
 MODEL_KEY = os.getenv("MODEL_KEY", "models/breast_cancer_model.pkl")
 PREDICTIONS_PREFIX = os.getenv("PREDICTIONS_PREFIX", "predictions")
@@ -17,15 +16,12 @@ MAX_MESSAGES = int(os.getenv("MAX_MESSAGES", "10"))
 VISIBILITY_TIMEOUT = int(os.getenv("VISIBILITY_TIMEOUT", "30"))
 WAIT_TIME = int(os.getenv("WAIT_TIME", "20"))
 
-# Initialize AWS clients
 s3 = boto3.client('s3', region_name=AWS_REGION)
 sqs = boto3.client('sqs', region_name=AWS_REGION)
-
-# Global model variable
 model = None
 
 def load_model_from_s3():
-    """Load the trained model from S3 on startup"""
+    """Load model from S3"""
     global model
     
     print(f"Loading model from s3://{S3_BUCKET}/{MODEL_KEY}...")
@@ -41,18 +37,15 @@ def load_model_from_s3():
         return False
 
 def perform_inference(features):
-    """Perform inference on a single record"""
+    """Run inference on features"""
     if model is None:
         raise Exception("Model not loaded")
     
-    # Reshape features for single prediction
     import numpy as np
     features_array = np.array(features).reshape(1, -1)
     
-    # Get prediction
     prediction = model.predict(features_array)[0]
     
-    # Get prediction probability (optional, for confidence)
     try:
         probabilities = model.predict_proba(features_array)[0]
         confidence = float(max(probabilities))
@@ -62,7 +55,7 @@ def perform_inference(features):
     return int(prediction), confidence
 
 def save_prediction_to_s3(record_id, prediction, confidence=None, true_label=None):
-    """Save prediction result to S3 as individual JSON file"""
+    """Save prediction to S3"""
     timestamp = datetime.utcnow().isoformat() + "Z"
     
     result = {
@@ -77,7 +70,6 @@ def save_prediction_to_s3(record_id, prediction, confidence=None, true_label=Non
     if true_label is not None:
         result["true_label"] = true_label
     
-    # Save to S3
     key = f"{PREDICTIONS_PREFIX}/{record_id}.json"
     
     try:
@@ -93,20 +85,16 @@ def save_prediction_to_s3(record_id, prediction, confidence=None, true_label=Non
         return False
 
 def process_message(message_body):
-    """Process a single SQS message"""
+    """Process SQS message"""
     try:
-        # Extract data from message
         record_id = message_body.get("record_id")
         features = message_body.get("features")
-        true_label = message_body.get("true_label")  # Optional, for validation
+        true_label = message_body.get("true_label")
         
         if not record_id or features is None:
             raise ValueError("Message missing required fields: record_id or features")
         
-        # Perform inference
         prediction, confidence = perform_inference(features)
-        
-        # Save to S3
         success = save_prediction_to_s3(record_id, prediction, confidence, true_label)
         
         if success:
@@ -122,7 +110,7 @@ def process_message(message_body):
         return False
 
 def poll_queue():
-    """Main polling loop"""
+    """Poll SQS and process messages"""
     print("Starting SQS consumer...")
     print(f"Queue URL: {SQS_QUEUE_URL}")
     print(f"S3 Bucket: {S3_BUCKET}")
@@ -134,7 +122,6 @@ def poll_queue():
     
     while True:
         try:
-            # Receive messages from SQS
             response = sqs.receive_message(
                 QueueUrl=SQS_QUEUE_URL,
                 MaxNumberOfMessages=MAX_MESSAGES,
@@ -154,14 +141,10 @@ def poll_queue():
                 receipt_handle = msg["ReceiptHandle"]
                 
                 try:
-                    # Parse message body
                     body = json.loads(msg["Body"])
-                    
-                    # Process the message
                     success = process_message(body)
                     
                     if success:
-                        # Delete message only after successful processing
                         sqs.delete_message(
                             QueueUrl=SQS_QUEUE_URL,
                             ReceiptHandle=receipt_handle
@@ -172,8 +155,7 @@ def poll_queue():
                         print(f"Message will be retried later")
                         
                 except json.JSONDecodeError as e:
-                    print(f"Invalid JSON in message: {e}")
-                    # Delete malformed messages
+                    print(f"Invalid JSON: {e}")
                     sqs.delete_message(
                         QueueUrl=SQS_QUEUE_URL,
                         ReceiptHandle=receipt_handle
@@ -188,21 +170,18 @@ def poll_queue():
                 print(f"\n📊 Stats: Processed={processed_count}, Failed={failed_count}")
                 
         except Exception as e:
-            print(f"Fatal poll error: {e}")
-            time.sleep(5)  # Backoff before retrying
+            print(f"Poll error: {e}")
+            time.sleep(5)
 
 def main():
-    """Main entry point"""
     print("=" * 60)
-    print("ML Inference Consumer - Kubernetes Pod")
+    print("ML Inference Consumer")
     print("=" * 60)
     
-    # Load model on startup
     if not load_model_from_s3():
         print("Failed to load model. Exiting...")
         sys.exit(1)
     
-    # Start polling
     try:
         poll_queue()
     except KeyboardInterrupt:

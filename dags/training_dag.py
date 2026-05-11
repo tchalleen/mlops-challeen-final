@@ -11,13 +11,12 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, classification_report
 import json
 
-# Configuration
 S3_BUCKET = "tony-mlops-2026"
 MODEL_KEY = "models/breast_cancer_model.pkl"
 METADATA_KEY = "models/model_metadata.json"
 
 def load_and_split_data(**context):
-    """Load breast cancer dataset and split into train/test sets"""
+    """Load dataset and split into train/test"""
     print("Loading breast cancer dataset...")
     data = load_breast_cancer()
     X, y = data.data, data.target
@@ -26,11 +25,8 @@ def load_and_split_data(**context):
         X, y, test_size=0.2, random_state=42, stratify=y
     )
     
-    print(f"Dataset loaded: {X_train.shape[0]} training samples, {X_test.shape[0]} test samples")
-    print(f"Features: {X_train.shape[1]}")
-    print(f"Classes: {len(set(y))}")
+    print(f"Dataset: {X_train.shape[0]} train, {X_test.shape[0]} test, {X_train.shape[1]} features")
     
-    # Push data to XCom for next task
     context['ti'].xcom_push(key='X_train', value=X_train.tolist())
     context['ti'].xcom_push(key='y_train', value=y_train.tolist())
     context['ti'].xcom_push(key='X_test', value=X_test.tolist())
@@ -39,10 +35,9 @@ def load_and_split_data(**context):
     context['ti'].xcom_push(key='target_names', value=data.target_names.tolist())
 
 def train_model(**context):
-    """Train logistic regression model and save to S3"""
-    print("Training logistic regression model...")
+    """Train model and save to S3"""
+    print("Training model...")
     
-    # Pull data from XCom
     ti = context['ti']
     X_train = ti.xcom_pull(key='X_train', task_ids='load_and_split_data')
     y_train = ti.xcom_pull(key='y_train', task_ids='load_and_split_data')
@@ -51,31 +46,23 @@ def train_model(**context):
     feature_names = ti.xcom_pull(key='feature_names', task_ids='load_and_split_data')
     target_names = ti.xcom_pull(key='target_names', task_ids='load_and_split_data')
     
-    # Train model
     model = LogisticRegression(max_iter=10000, random_state=42)
     model.fit(X_train, y_train)
     
-    # Evaluate on test set
     y_pred = model.predict(X_test)
     accuracy = accuracy_score(y_test, y_pred)
     
-    print(f"Model trained successfully!")
-    print(f"Training accuracy: {model.score(X_train, y_train):.4f}")
-    print(f"Test accuracy: {accuracy:.4f}")
-    print("\nClassification Report:")
+    print(f"Accuracy: {accuracy:.4f}")
     print(classification_report(y_test, y_pred))
     
-    # Save model directly to S3 (don't pass through XCom)
-    print("Saving model to S3...")
     model_bytes = io.BytesIO()
     joblib.dump(model, model_bytes)
     model_bytes.seek(0)
     
     s3 = boto3.client('s3', region_name='us-east-1')
     s3.upload_fileobj(model_bytes, S3_BUCKET, MODEL_KEY)
-    print(f"✅ Model uploaded to s3://{S3_BUCKET}/{MODEL_KEY}")
+    print(f"✅ Model: s3://{S3_BUCKET}/{MODEL_KEY}")
     
-    # Create and upload metadata
     metadata = {
         "model_type": "LogisticRegression",
         "accuracy": accuracy,
@@ -91,14 +78,11 @@ def train_model(**context):
         Body=json.dumps(metadata, indent=2),
         ContentType='application/json'
     )
-    print(f"✅ Metadata uploaded to s3://{S3_BUCKET}/{METADATA_KEY}")
-    print(f"Model accuracy: {accuracy:.4f}")
+    print(f"✅ Metadata: s3://{S3_BUCKET}/{METADATA_KEY}")
 
 def save_model_to_s3(**context):
-    """DEPRECATED - Model is now saved in train_model task"""
-    print("✅ Model already saved to S3 in train_model task - nothing to do here")
+    print("✅ Model already saved in train_model task")
 
-# Define DAG
 default_args = {
     'owner': 'airflow',
     'depends_on_past': False,
@@ -111,8 +95,8 @@ default_args = {
 with DAG(
     dag_id='breast_cancer_training',
     default_args=default_args,
-    description='Train breast cancer classification model and save to S3',
-    schedule_interval=None,  # Manual trigger
+    description='Train model and save to S3',
+    schedule_interval=None,
     start_date=days_ago(1),
     catchup=False,
     tags=['ml', 'training', 's3'],
